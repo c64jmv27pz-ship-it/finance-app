@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>資産アプリ</title>
+
+    <style>
+        .page { display:none; }
+        .active { display:block; }
+
+        #resultTable {
+            overflow-x:auto;
+            white-space:nowrap;
+            margin-bottom:80px;
+        }
+
+        /* ===== タブバー（iPhone風） ===== */
+        #tabbar{
+            position:fixed;
+            bottom:0;
+            left:0;
+            width:100%;
+            display:flex;
+            background:#111;
+        }
+
+        #tabbar button{
+            flex:1;
+            padding:15px;
+            color:white;
+            background:none;
+            border:none;
+            font-size:14px;
+        }
+
+        body{
+            margin:0;
+            padding:10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ===================== -->
+<!-- ホーム -->
+<!-- ===================== -->
+<div id="main" class="page active">
+
+<h1>資産シミュレーター</h1>
+
+現在資産<br>
+<input id="current_asset"><br><br>
+
+収入<br>
+<input id="income"><br><br>
+
+投資<br>
+<input id="invest"><br><br>
+
+年利<br>
+<input id="rate" value="5"><br><br>
+
+年数<br>
+<input id="years" value="20"><br><br>
+
+開始年齢<br>
+<input id="start_age" value="25"><br><br>
+
+終了年齢<br>
+<input id="end_age" value="60"><br><br>
+
+<button onclick="openExpense()">支出設定</button>
+<button onclick="runSimulation()">シミュレーション</button>
+
+<h2 id="result"></h2>
+
+<div id="resultTable"></div>
+
+</div>
+
+
+<!-- ===================== -->
+<!-- 支出 -->
+<!-- ===================== -->
+<div id="expensePage" class="page">
+
+<h2>支出設定</h2>
+
+家賃<br>
+<input id="rent"><br><br>
+
+食費<br>
+<input id="food"><br><br>
+
+その他<br>
+<input id="other"><br><br>
+
+<button onclick="saveExpense()">保存</button>
+<button onclick="show('main')">戻る</button>
+
+</div>
+
+
+<!-- ===================== -->
+<!-- タブバー -->
+<!-- ===================== -->
+<div id="tabbar">
+
+    <button onclick="show('main')">ホーム</button>
+    <button onclick="openExpense()">支出</button>
+    <button onclick="runSimulation()">シミュ</button>
+    <button onclick="alertHistory()">履歴</button>
+
+</div>
+
+
+<!-- ===================== -->
+<!-- JS -->
+<!-- ===================== -->
+<script>
+
+let state = {
+    expense:{rent:0, food:0, other:0}
+}
+
+
+// 画面切替
+function show(page){
+    document.querySelectorAll(".page").forEach(p=>{
+        p.classList.remove("active")
+    })
+    document.getElementById(page).classList.add("active")
+}
+
+function openExpense(){
+    show("expensePage")
+}
+
+
+// 支出保存
+function saveExpense(){
+
+    state.expense.rent = Number(document.getElementById("rent").value || 0)
+    state.expense.food = Number(document.getElementById("food").value || 0)
+    state.expense.other = Number(document.getElementById("other").value || 0)
+
+    show("main")
+}
+
+
+// シミュレーション
+function runSimulation(){
+
+    const startAge = Number(document.getElementById("start_age").value)
+    const endAge = Number(document.getElementById("end_age").value)
+
+    let asset = Number(document.getElementById("current_asset").value || 0)
+    const income = Number(document.getElementById("income").value || 0)
+    const invest = Number(document.getElementById("invest").value || 0)
+    const rate = Number(document.getElementById("rate").value || 0)
+
+    const expense =
+        state.expense.rent +
+        state.expense.food +
+        state.expense.other
+
+    let result = []
+
+    for(let age=startAge; age<=endAge; age++){
+
+        const monthly = income - expense - invest
+        asset = (asset + monthly * 12) * (1 + rate/100)
+
+        result.push({
+            age,
+            asset: Math.floor(asset)
+        })
+    }
+
+    localStorage.setItem("sim", JSON.stringify(result))
+
+    document.getElementById("result").innerText =
+        result[result.length-1].asset.toLocaleString() + "円"
+
+    renderTable(result)
+}
+
+
+// 横長表示
+function renderTable(result){
+
+    let html = "<table border='1'><tr>"
+
+    result.forEach(d=>{
+        html += `<th>${d.age}</th>`
+    })
+
+    html += "</tr><tr>"
+
+    result.forEach(d=>{
+        html += `<td>${d.asset.toLocaleString()}</td>`
+    })
+
+    html += "</tr></table>"
+
+    document.getElementById("resultTable").innerHTML = html
+}
+
+
+// 履歴
+function alertHistory(){
+
+    fetch("/history")
+        .then(res => res.json())
+        .then(data => {
+
+            alert(
+                data.map(d =>
+                    `資産:${d[0]} 収入:${d[1]}`
+                ).join("\n")
+            )
+
+        })
+}
+
+</script>
+
+</body>
+</html>
